@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Twin + Agents — Product Design</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #090909; color: #E0E0E0; font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Courier New', monospace; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #090909; }
+  ::-webkit-scrollbar-thumb { background: #222; border-radius: 3px; }
+  @media (max-width: 768px) {
+    .layout { flex-direction: column !important; }
+    .sidebar { width: 100% !important; min-width: 100% !important; height: auto !important; position: relative !important; border-right: none !important; border-bottom: 1px solid #1A1A1A; flex-direction: row !important; overflow-x: auto !important; padding: 12px 0 !important; }
+    .sidebar-header { display: none !important; }
+    .nav-item { padding: 8px 14px !important; white-space: nowrap; }
+    .nav-subtitle { display: none !important; }
+    .main-content { padding: 20px 16px !important; }
+    .agent-io { flex-direction: column !important; }
+    .metrics-row { flex-wrap: wrap !important; }
+    .conflict-cols { flex-direction: column !important; }
+    .arch-pre { font-size: 8px !important; }
+    .pipeline-row { flex-direction: column !important; }
+    .pipeline-time { width: auto !important; flex-direction: row !important; gap: 8px !important; }
+    .pipeline-line { display: none !important; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState } = React;
+
+const sections = [
+  { id: "architecture", icon: "\u25C8", title: "System Architecture", subtitle: "How the pieces connect" },
+  { id: "agents", icon: "\u25C9", title: "Agent Roster", subtitle: "The constellation of specialists" },
+  { id: "consensus", icon: "\u25CE", title: "Consensus Protocol", subtitle: "How agents agree and disagree" },
+  { id: "twin", icon: "\u25C7", title: "Digital Twin Schema", subtitle: "The living health document" },
+  { id: "ux", icon: "\u25FB", title: "User Experience Flows", subtitle: "How people actually use this" },
+  { id: "daily", icon: "\u25C8", title: "Daily Engine", subtitle: "The morning briefing pipeline" },
+];
+
+const agents = [
+  {
+    name: "Metabolic", emoji: "\uD83D\uDD25", color: "#FF6B35",
+    domain: "Blood sugar, insulin, lipids, thyroid, energy metabolism",
+    inputs: ["Glucose / CGM data", "Lipid panels (ApoB, LDL-p, TG)", "Thyroid markers (TSH, T3, T4)", "HbA1c", "Insulin levels", "Meal timing logs"],
+    outputs: ["Metabolic efficiency score", "Insulin sensitivity trend", "Meal timing recommendations", "Fasting protocol suggestions"],
+    personality: "Direct, numbers-driven. Speaks in cause\u2192effect. \u2018Your post-dinner glucose spike averaged 42mg/dL this week \u2014 down from 58 last month. The 30-min post-meal walks are working.\u2019",
+    conflictsWith: ["Nutrition (meal timing vs. nutrient density)", "Recovery (fasting vs. recovery needs)"],
+    updateFrequency: "Real-time (CGM) + weekly (labs)",
+  },
+  {
+    name: "Recovery", emoji: "\uD83C\uDF19", color: "#5C6BC0",
+    domain: "Sleep architecture, HRV, stress response, cortisol, recovery",
+    inputs: ["Sleep stages (Oura, Whoop, Apple Watch)", "HRV trends", "Resting heart rate", "Cortisol (blood/saliva)", "Subjective energy ratings", "Screen time / wind-down data"],
+    outputs: ["Sleep quality score", "Recovery readiness", "Optimal bedtime window", "Stress load assessment", "Rest day recommendations"],
+    personality: "Calm, protective. Acts as the system\u2019s brake. \u2018Your HRV dropped 15% over 3 days. Before we push harder training, let\u2019s prioritize deep sleep tonight.\u2019",
+    conflictsWith: ["Fitness (training load vs. recovery)", "Metabolic (fasting stress vs. sleep quality)"],
+    updateFrequency: "Daily (wearables) + monthly (cortisol labs)",
+  },
+  {
+    name: "Nutrition", emoji: "\uD83E\uDD6C", color: "#2E7D32",
+    domain: "Micronutrients, gut health, diet composition, supplementation",
+    inputs: ["Blood panels (ferritin, B12, D3, Mg, Zn, folate)", "Food logs / photo recognition", "Gut microbiome tests", "Inflammatory markers (hs-CRP, homocysteine)", "Supplement inventory", "Genetic SNPs (MTHFR, VDR, etc.)"],
+    outputs: ["Nutrient gap analysis", "Supplement protocol adjustments", "Anti-inflammatory food recs", "Gut health score", "Deficiency alerts"],
+    personality: "Thorough, educational. Explains the \u2018why.\u2019 \u2018Your ferritin dropped to 28 \u2014 still in range, but trending away from optimal. Adding pumpkin seeds or liver once a week would close this gap without supplements.\u2019",
+    conflictsWith: ["Metabolic (meal timing vs. nutrient absorption)", "Fitness (protein timing vs. gut load)"],
+    updateFrequency: "Event-driven (meal logs) + quarterly (blood panels)",
+  },
+  {
+    name: "Fitness", emoji: "\uD83D\uDCAA", color: "#C62828",
+    domain: "Exercise programming, strength, cardio, mobility, body composition",
+    inputs: ["Training logs (volume, intensity, frequency)", "VO2max estimates", "Body composition (DEXA, bioimpedance)", "Grip strength", "Step count / movement data", "Testosterone, IGF-1, creatine kinase"],
+    outputs: ["Training load score", "Progressive overload suggestions", "Zone 2 cardio targets", "Deload recommendations", "Mobility priorities"],
+    personality: "Motivating but data-honest. \u2018Your Zone 2 base is solid \u2014 4.2 hrs/week average. But your grip strength is lagging for your age bracket. Adding 2x/week farmer\u2019s walks would close that gap.\u2019",
+    conflictsWith: ["Recovery (pushing vs. resting)", "Nutrition (caloric deficit vs. performance)"],
+    updateFrequency: "Daily (activity) + monthly (composition) + quarterly (performance labs)",
+  },
+  {
+    name: "Longevity", emoji: "\u23F3", color: "#6A1B9A",
+    domain: "Biological age, aging clocks, inflammation, oxidative stress, telomeres",
+    inputs: ["Epigenetic age tests (TruDiagnostic, GlycanAge)", "Inflammatory markers panel", "Oxidative stress markers", "Telomere length", "All other agents\u2019 scores", "Lifestyle consistency metrics"],
+    outputs: ["Biological age estimate", "Pace of aging trend", "System-level health score", "Long-term risk projections", "Protocol effectiveness assessment"],
+    personality: "Big-picture, strategic. The \u2018advisor to the board.\u2019 \u2018Across all systems, your biological age gap narrowed from +3.2 to +1.8 years in 6 months. The inflammation protocol and sleep improvements are the biggest drivers.\u2019",
+    conflictsWith: ["None directly \u2014 synthesizes all others. Can override short-term gains for long-term health."],
+    updateFrequency: "Quarterly (aging clocks) + monthly (computed from other agents)",
+  },
+  {
+    name: "Orchestrator", emoji: "\uD83E\uDDE0", color: "#37474F",
+    domain: "Consensus, conflict resolution, daily planning, user communication",
+    inputs: ["All agent outputs", "User preferences & constraints", "Schedule / calendar data", "Historical recommendation adherence", "User feedback on past recommendations"],
+    outputs: ["Daily action plan (max 3 priorities)", "Conflict resolution decisions", "Twin update commits", "Weekly/monthly review summaries"],
+    personality: "Concise, prioritizing. The user\u2019s single point of contact for daily decisions. Translates multi-agent complexity into \u2018here\u2019s what matters today.\u2019",
+    conflictsWith: [],
+    updateFrequency: "Daily (morning briefing) + on-demand (user questions)",
+  },
+];
+
+const twinSchema = [
+  { layer: "Identity", color: "#455A64", fields: [
+    { name: "demographics", type: "static", desc: "Age, sex, ethnicity, height" },
+    { name: "genetics_baseline", type: "static", desc: "Key SNPs, ancestry, predispositions" },
+    { name: "goals", type: "mutable", desc: "User-set health objectives + priorities" },
+    { name: "constraints", type: "mutable", desc: "Allergies, injuries, medications, diet restrictions" },
+  ]},
+  { layer: "Event Stream", color: "#1565C0", fields: [
+    { name: "biomarker_events[]", type: "append-only", desc: "{timestamp, source, marker_id, value, unit, confidence, agent_interpretation}" },
+    { name: "wearable_events[]", type: "append-only", desc: "{timestamp, device, metric, value, context}" },
+    { name: "intervention_events[]", type: "append-only", desc: "{timestamp, type, started|stopped, agent_who_recommended}" },
+    { name: "self_report_events[]", type: "append-only", desc: "{timestamp, category, rating, notes}" },
+  ]},
+  { layer: "Computed State", color: "#00838F", fields: [
+    { name: "current_snapshot", type: "computed", desc: "Latest value per biomarker \u2014 materialized from events" },
+    { name: "agent_scores{}", type: "computed", desc: "Per-agent domain scores (0\u2013100) with confidence" },
+    { name: "biological_age", type: "computed", desc: "Composite from longevity agent" },
+    { name: "trend_vectors{}", type: "computed", desc: "Per-biomarker: improving / stable / declining + velocity" },
+    { name: "active_protocols[]", type: "computed", desc: "Currently running interventions + their target biomarkers" },
+  ]},
+  { layer: "Agent Memory", color: "#6A1B9A", fields: [
+    { name: "reasoning_history[]", type: "append-only", desc: "Per-agent: reasoning chain that led to each recommendation" },
+    { name: "consensus_log[]", type: "append-only", desc: "Conflict records: which agents disagreed, resolution, outcome" },
+    { name: "recommendation_outcomes[]", type: "append-only", desc: "Did user follow it? What was the biomarker effect?" },
+    { name: "user_feedback[]", type: "append-only", desc: "Explicit feedback on recommendations (helpful, ignored, harmful)" },
+  ]},
+];
+
+const consensusSteps = [
+  { step: 1, name: "Observe", desc: "Each agent independently reads the latest Twin state relevant to their domain.", detail: "The Metabolic agent reads glucose trends. Recovery reads HRV. Nutrition reads latest blood panel. Each forms an independent assessment." },
+  { step: 2, name: "Propose", desc: "Each agent submits 1\u20133 proposed actions with priority scores and evidence.", detail: "Format: {action, priority: 0\u201310, evidence: [biomarker_refs], conflicts_with: [agent_ids], rationale}. Proposals are posted to a shared message bus." },
+  { step: 3, name: "Challenge", desc: "Agents review each other\u2019s proposals and flag conflicts.", detail: "Example: Fitness proposes \u2018increase training volume.\u2019 Recovery challenges: \u2018HRV is down 15%, adding load will deepen recovery debt.\u2019 Both provide biomarker evidence." },
+  { step: 4, name: "Negotiate", desc: "Conflicting agents exchange evidence and propose compromises. Max 2 rounds.", detail: "Fitness + Recovery negotiate: \u2018Reduce intensity but maintain frequency. Swap HIIT for Zone 2 this week.\u2019 Both agents must agree or escalate." },
+  { step: 5, name: "Resolve", desc: "The Orchestrator makes final decisions using priority weights and user preferences.", detail: "Resolution rules: (1) Safety-first \u2014 Recovery/medical concerns always win. (2) Goal-alignment \u2014 user\u2019s stated priorities break ties. (3) Evidence strength \u2014 biomarker-backed beats heuristic. (4) Longevity agent has veto power for long-term harm." },
+  { step: 6, name: "Commit", desc: "Approved actions are committed to the Twin. The consensus log records everything.", detail: "The Twin is updated with: new recommendations, agent scores, reasoning chains, and the full conflict/resolution record. Nothing is lost. Every decision is auditable." },
+];
+
+const uxFlows = [
+  { name: "Morning Briefing", time: "7:00 AM", desc: "The core daily touchpoint. User opens app to a personalized briefing generated overnight by the Orchestrator.",
+    screens: ["Twin Pulse \u2014 single screen showing overnight recovery score, readiness, and any alerts", "Today\u2019s 3 Priorities \u2014 specific, actionable (e.g., \u201830min Zone 2 walk after lunch\u2019)", "Why These? \u2014 tap to expand reasoning from the relevant agent"] },
+  { name: "Agent Chat", time: "Anytime", desc: "User can open a conversation with any specific agent. The agent has full Twin context but speaks only about its domain.",
+    screens: ["Agent selector \u2014 visual constellation showing all agents, tap to chat", "Domain-scoped conversation \u2014 the Nutrition agent won\u2019t give sleep advice", "Cross-referral \u2014 agents can suggest the user talk to another agent"] },
+  { name: "Lab Upload", time: "Event-driven", desc: "User uploads blood work (photo, PDF, or manual entry). All agents process in parallel.",
+    screens: ["Upload \u2192 OCR extraction \u2192 user confirms values", "Processing view: each agent \u2018claiming\u2019 their relevant markers", "Results: per-agent interpretations, new scores, protocol adjustments"] },
+  { name: "Weekly Review", time: "Sunday", desc: "Orchestrator generates a synthesis of the week. What changed, what worked, what to adjust.",
+    screens: ["Trend dashboard \u2014 biomarker movements with agent annotations", "Protocol scorecard \u2014 adherence % per recommendation", "Next week\u2019s focus \u2014 1 strategic shift from the Longevity agent"] },
+  { name: "Deep Dive", time: "Quarterly", desc: "After new lab results or aging clock tests, the system produces a comprehensive Twin report.",
+    screens: ["Biological age delta + pace-of-aging trend", "System-by-system breakdown (each agent\u2019s domain score over time)", "Protocol effectiveness: which interventions moved which biomarkers"] },
+];
+
+function AgentCard({ agent, isOpen, onToggle }) {
+  return (
+    <div onClick={onToggle} style={{ background: isOpen ? "#141414" : "#0F0F0F", border: `1px solid ${isOpen ? agent.color + "55" : "#1A1A1A"}`, borderRadius: 10, padding: isOpen ? 20 : 14, cursor: "pointer", transition: "all 0.15s ease" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <span style={{ fontSize: 22 }}>{agent.emoji}</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: agent.color }}>{agent.name}</div>
+          <div style={{ fontSize: 10, color: "#666", marginTop: 2 }}>{agent.domain}</div>
+        </div>
+        <span style={{ fontSize: 9, color: "#444", letterSpacing: 2 }}>{agent.updateFrequency.split("+")[0].trim().toUpperCase()}</span>
+      </div>
+      {isOpen && (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ background: agent.color + "12", borderLeft: `3px solid ${agent.color}`, padding: "10px 14px", borderRadius: "0 8px 8px 0", marginBottom: 14 }}>
+            <div style={{ fontSize: 9, letterSpacing: 2, color: agent.color, marginBottom: 4, fontWeight: 700 }}>VOICE & PERSONALITY</div>
+            <p style={{ fontSize: 11, color: "#BBB", lineHeight: 1.7, margin: 0, fontStyle: "italic" }}>{agent.personality}</p>
+          </div>
+          <div className="agent-io" style={{ display: "flex", gap: 16, marginBottom: 14 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 9, letterSpacing: 2, color: "#555", marginBottom: 6 }}>READS FROM TWIN</div>
+              {agent.inputs.map((inp, i) => (<div key={i} style={{ fontSize: 10, color: "#888", padding: "2px 0" }}><span style={{ color: "#333", marginRight: 6 }}>\u2190</span>{inp}</div>))}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 9, letterSpacing: 2, color: "#555", marginBottom: 6 }}>WRITES TO TWIN</div>
+              {agent.outputs.map((out, i) => (<div key={i} style={{ fontSize: 10, color: "#888", padding: "2px 0" }}><span style={{ color: agent.color + "88", marginRight: 6 }}>\u2192</span>{out}</div>))}
+            </div>
+          </div>
+          {agent.conflictsWith.length > 0 && agent.name !== "Orchestrator" && (
+            <div style={{ background: "#0A0A0A", padding: "8px 12px", borderRadius: 6, border: "1px solid #1A1A1A" }}>
+              <div style={{ fontSize: 9, letterSpacing: 2, color: "#AA6644", marginBottom: 4 }}>TYPICAL TENSIONS</div>
+              {agent.conflictsWith.map((c, i) => (<div key={i} style={{ fontSize: 10, color: "#777", padding: "2px 0" }}>\u26A1 {c}</div>))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function App() {
+  const [activeSection, setActiveSection] = useState("architecture");
+  const [openAgent, setOpenAgent] = useState(null);
+  const [openStep, setOpenStep] = useState(null);
+  const [openFlow, setOpenFlow] = useState(null);
+
+  const typeColor = (t) => ({ "static": ["#333","#888"], "append-only": ["#1A2A1A","#4CAF50"], "computed": ["#1A1A2A","#42A5F5"], "mutable": ["#2A2A1A","#FFA726"] }[t] || ["#222","#888"]);
+
+  return (
+    <div className="layout" style={{ display: "flex", minHeight: "100vh" }}>
+      {/* Sidebar */}
+      <div className="sidebar" style={{ width: 200, minWidth: 200, borderRight: "1px solid #1A1A1A", padding: "32px 0", position: "sticky", top: 0, height: "100vh", overflowY: "auto", display: "flex", flexDirection: "column" }}>
+        <div className="sidebar-header" style={{ padding: "0 16px", marginBottom: 32 }}>
+          <div style={{ fontSize: 9, letterSpacing: 4, color: "#444", marginBottom: 8 }}>PRODUCT DESIGN</div>
+          <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.3, background: "linear-gradient(135deg, #00E676, #00BFA5)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Twin + Agents</div>
+        </div>
+        {sections.map((s) => (
+          <div key={s.id} className="nav-item" onClick={() => setActiveSection(s.id)} style={{ padding: "10px 16px", cursor: "pointer", borderLeft: activeSection === s.id ? "2px solid #00E676" : "2px solid transparent", background: activeSection === s.id ? "#0A0A0A" : "transparent" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ color: activeSection === s.id ? "#00E676" : "#444", fontSize: 12 }}>{s.icon}</span>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: activeSection === s.id ? "#E0E0E0" : "#777" }}>{s.title}</div>
+                <div className="nav-subtitle" style={{ fontSize: 9, color: "#444", marginTop: 1 }}>{s.subtitle}</div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Main */}
+      <div className="main-content" style={{ flex: 1, padding: "32px 40px", maxWidth: 760 }}>
+
+        {activeSection === "architecture" && (
+          <div>
+            <h2 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 8px 0" }}>System Architecture</h2>
+            <p style={{ color: "#777", fontSize: 12, lineHeight: 1.7, marginBottom: 28 }}>Two-layer system: the Digital Twin is the single source of truth (data), the Agent Constellation is the reasoning engine (intelligence). They are decoupled \u2014 agents read from and write to the Twin, never to each other\u2019s state directly.</p>
+            <div className="arch-pre" style={{ background: "#0D0D0D", border: "1px solid #1A1A1A", borderRadius: 10, padding: 24, fontSize: 10.5, lineHeight: 1.8, color: "#888", overflowX: "auto", marginBottom: 24 }}>
+              <pre style={{ margin: 0, whiteSpace: "pre", fontFamily: "inherit" }}>{`\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510
+\u2502                    USER LAYER                       \u2502
+\u2502  Morning Briefing \u2502 Agent Chat \u2502 Lab Upload \u2502 Review\u2502
+\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518
+             \u2502
+             \u25BC
+\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510
+\u2502              \uD83E\uDDE0 ORCHESTRATOR AGENT                  \u2502
+\u2502     Consensus \u00B7 Conflict Resolution \u00B7 Scheduling    \u2502
+\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518
+             \u2502
+             \u25BC
+\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510
+\u2502             AGENT MESSAGE BUS (async)               \u2502
+\u2502  Proposals \u2502 Challenges \u2502 Negotiations \u2502 Votes      \u2502
+\u2514\u2500\u2500\u252C\u2500\u2500\u2500\u2500\u2500\u2500\u252C\u2500\u2500\u2500\u2500\u2500\u2500\u252C\u2500\u2500\u2500\u2500\u2500\u2500\u252C\u2500\u2500\u2500\u2500\u2500\u2500\u252C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518
+   \u2502      \u2502      \u2502      \u2502      \u2502
+   \u25BC      \u25BC      \u25BC      \u25BC      \u25BC
+  \uD83D\uDD25     \uD83C\uDF19     \uD83E\uDD6C     \uD83D\uDCAA     \u23F3
+ META   RECV   NUTR   FITN   LONG
+   \u2502      \u2502      \u2502      \u2502      \u2502
+   \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2518
+             \u2502
+             \u25BC
+\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510
+\u2502            \u25C7 DIGITAL TWIN (per user)                \u2502
+\u2502  \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510 \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510 \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510 \u2502
+\u2502  \u2502Identity \u2502 \u2502 Event Stream \u2502 \u2502 Computed State   \u2502 \u2502
+\u2502  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518 \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518 \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518 \u2502
+\u2502  \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510   \u2502
+\u2502  \u2502 Agent Memory (reasoning, consensus, outcomes)\u2502   \u2502
+\u2502  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518   \u2502
+\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518
+             \u2502
+             \u25BC
+\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510
+\u2502               DATA INGESTION LAYER                  \u2502
+\u2502  Wearables \u2502 Lab APIs \u2502 Manual Entry \u2502 Photo OCR    \u2502
+\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518`}</pre>
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 12, color: "#00BFA5" }}>Key Design Principles</div>
+            {[
+              { label: "Twin = Source of Truth", desc: "Agents never store state outside the Twin. If an agent needs something, it reads from the Twin. If it produces something, it writes to the Twin via event commits." },
+              { label: "Agents = Stateless Reasoners", desc: "Each agent is a function: Twin State \u2192 Proposals. They have no persistent memory outside the Twin\u2019s agent_memory layer. Can be upgraded or swapped without data loss." },
+              { label: "Event-Sourced Everything", desc: "Nothing is ever overwritten. Every biomarker reading, every recommendation, every agent decision is an immutable event. \u2018Current state\u2019 is always computed. You can time-travel to any point." },
+              { label: "Async Communication", desc: "Agents don\u2019t call each other directly. They post to a message bus. The Orchestrator reads all messages and manages the consensus cycle. This prevents cascading failures." },
+              { label: "User Controls the Loop", desc: "The system recommends, the user decides. Every recommendation is a proposal, not a command. The Twin records whether the user followed it and what happened." },
+            ].map((p, i) => (
+              <div key={i} style={{ marginBottom: 14, paddingLeft: 16, borderLeft: "2px solid #1A1A1A" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#CCC", marginBottom: 2 }}>{p.label}</div>
+                <div style={{ fontSize: 11, color: "#777", lineHeight: 1.6 }}>{p.desc}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeSection === "agents" && (
+          <div>
+            <h2 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 8px 0" }}>Agent Roster</h2>
+            <p style={{ color: "#777", fontSize: 12, lineHeight: 1.7, marginBottom: 24 }}>5 domain specialists + 1 orchestrator. Each has a distinct voice, reads/writes specific Twin layers, and has known tension points with other agents.</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {agents.map((a) => (<AgentCard key={a.name} agent={a} isOpen={openAgent === a.name} onToggle={() => setOpenAgent(openAgent === a.name ? null : a.name)} />))}
+            </div>
+            <div style={{ marginTop: 24, background: "#0A0A0A", border: "1px solid #1A1A1A", borderRadius: 8, padding: 16 }}>
+              <div style={{ fontSize: 9, letterSpacing: 2, color: "#00E676", marginBottom: 8 }}>WHY THESE 5 + 1</div>
+              <p style={{ fontSize: 11, color: "#888", lineHeight: 1.7, margin: 0 }}>These 5 domains cover the major controllable levers of longevity: metabolic health, sleep/recovery, nutrition, exercise, and biological aging. The Orchestrator exists because multi-agent consensus without a coordinator leads to deadlocks. Start with these 5 \u2014 add Mental Health, Hormonal, or Cognitive agents later as the Twin schema is extensible.</p>
+            </div>
+          </div>
+        )}
+
+        {activeSection === "consensus" && (
+          <div>
+            <h2 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 8px 0" }}>Consensus Protocol</h2>
+            <p style={{ color: "#777", fontSize: 12, lineHeight: 1.7, marginBottom: 24 }}>Agents must agree before updating the Twin or surfacing recommendations. This 6-step protocol runs daily and on-demand when new data arrives.</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {consensusSteps.map((s) => (
+                <div key={s.step} onClick={() => setOpenStep(openStep === s.step ? null : s.step)} style={{ background: openStep === s.step ? "#111" : "#0C0C0C", border: `1px solid ${openStep === s.step ? "#00E67633" : "#161616"}`, borderRadius: 8, padding: openStep === s.step ? 16 : "12px 16px", cursor: "pointer" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ width: 28, height: 28, borderRadius: "50%", background: openStep === s.step ? "#00E676" : "#1A1A1A", color: openStep === s.step ? "#000" : "#555", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{s.step}</span>
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>{s.name}</span>
+                      <span style={{ fontSize: 11, color: "#666", marginLeft: 12 }}>{s.desc}</span>
+                    </div>
+                  </div>
+                  {openStep === s.step && (<div style={{ marginTop: 12, marginLeft: 40, fontSize: 11, color: "#999", lineHeight: 1.7 }}>{s.detail}</div>)}
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: 24, background: "#0D0808", border: "1px solid #331A1A", borderRadius: 8, padding: 16 }}>
+              <div style={{ fontSize: 9, letterSpacing: 2, color: "#FF6B35", marginBottom: 10 }}>EXAMPLE: REAL CONFLICT RESOLUTION</div>
+              <div style={{ fontSize: 11, color: "#AAA", lineHeight: 1.8 }}>
+                <div style={{ marginBottom: 8 }}><span style={{ color: "#FF6B35" }}>\uD83D\uDD25 Metabolic:</span> "Recommend 18:8 intermittent fasting \u2014 glucose variability is high."</div>
+                <div style={{ marginBottom: 8 }}><span style={{ color: "#5C6BC0" }}>\uD83C\uDF19 Recovery:</span> "Challenge \u2014 cortisol is already elevated. Extended fasting will worsen sleep."</div>
+                <div style={{ marginBottom: 8 }}><span style={{ color: "#2E7D32" }}>\uD83E\uDD6C Nutrition:</span> "Supporting Recovery \u2014 ferritin is borderline. Reduced eating window risks iron intake."</div>
+                <div style={{ marginBottom: 8 }}><span style={{ color: "#FF6B35" }}>\uD83D\uDD25 Metabolic:</span> "Compromise: 14:10 window instead of 18:6."</div>
+                <div style={{ marginBottom: 8 }}><span style={{ color: "#37474F" }}>\uD83E\uDDE0 Orchestrator:</span> "Approved: 14:10. Recovery concern has priority (safety-first). Iron monitoring flagged for next panel."</div>
+                <div style={{ color: "#666", fontStyle: "italic" }}>\u2192 Twin updated: new protocol event, consensus log recorded.</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeSection === "twin" && (
+          <div>
+            <h2 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 8px 0" }}>Digital Twin Schema</h2>
+            <p style={{ color: "#777", fontSize: 12, lineHeight: 1.7, marginBottom: 24 }}>4 layers, from static identity to dynamic agent memory. The Twin is mostly append-only. \u201CCurrent state\u201D is always computed from the event stream.</p>
+            {twinSchema.map((layer) => (
+              <div key={layer.layer} style={{ marginBottom: 16, background: "#0C0C0C", border: "1px solid #1A1A1A", borderRadius: 8, overflow: "hidden" }}>
+                <div style={{ background: layer.color + "22", borderBottom: `1px solid ${layer.color}33`, padding: "10px 16px", display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: layer.color }} />
+                  <span style={{ fontSize: 12, fontWeight: 700, color: layer.color }}>{layer.layer}</span>
+                </div>
+                <div style={{ padding: "8px 0" }}>
+                  {layer.fields.map((f, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "flex-start", padding: "6px 16px", borderBottom: i < layer.fields.length - 1 ? "1px solid #111" : "none", gap: 12, flexWrap: "wrap" }}>
+                      <code style={{ fontSize: 11, color: "#CCC", minWidth: 180, flexShrink: 0 }}>{f.name}</code>
+                      <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, background: typeColor(f.type)[0], color: typeColor(f.type)[1], flexShrink: 0, letterSpacing: 1 }}>{f.type.toUpperCase()}</span>
+                      <span style={{ fontSize: 10, color: "#666" }}>{f.desc}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <div style={{ background: "#0A0A0A", border: "1px solid #1A1A1A", borderRadius: 8, padding: 16, marginTop: 8 }}>
+              <div style={{ fontSize: 9, letterSpacing: 2, color: "#00E676", marginBottom: 8 }}>WHY THIS STRUCTURE</div>
+              <p style={{ fontSize: 11, color: "#888", lineHeight: 1.7, margin: 0 }}>CQRS + Event Sourcing adapted for health data. Writes go to the event stream (append-only, immutable). Reads come from materialized computed state. Agent memory is also append-only. This means: full audit trail, time-travel debugging, and ability to re-run any agent against historical state. Adding a new biomarker type is just a schema registry entry, not a database migration.</p>
+            </div>
+          </div>
+        )}
+
+        {activeSection === "ux" && (
+          <div>
+            <h2 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 8px 0" }}>User Experience Flows</h2>
+            <p style={{ color: "#777", fontSize: 12, lineHeight: 1.7, marginBottom: 24 }}>5 core interaction patterns. The user never sees \u201Cagents\u201D as technical infrastructure \u2014 they experience personalized health specialists they can talk to.</p>
+            {uxFlows.map((flow, fi) => (
+              <div key={fi} onClick={() => setOpenFlow(openFlow === fi ? null : fi)} style={{ background: openFlow === fi ? "#111" : "#0C0C0C", border: `1px solid ${openFlow === fi ? "#00BFA533" : "#161616"}`, borderRadius: 8, padding: openFlow === fi ? 20 : 14, marginBottom: 8, cursor: "pointer" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ fontSize: 10, color: "#00BFA5", fontWeight: 700, minWidth: 70, textAlign: "right" }}>{flow.time}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, flex: 1 }}>{flow.name}</span>
+                  <span style={{ color: "#333", fontSize: 14, transform: openFlow === fi ? "rotate(45deg)" : "none", transition: "transform 0.15s" }}>+</span>
+                </div>
+                {openFlow === fi && (
+                  <div style={{ marginTop: 14 }}>
+                    <p style={{ fontSize: 11, color: "#999", lineHeight: 1.7, margin: "0 0 14px 0" }}>{flow.desc}</p>
+                    <div style={{ fontSize: 9, letterSpacing: 2, color: "#555", marginBottom: 8 }}>SCREENS</div>
+                    {flow.screens.map((screen, si) => (
+                      <div key={si} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "6px 0", borderBottom: si < flow.screens.length - 1 ? "1px solid #151515" : "none" }}>
+                        <span style={{ width: 20, height: 20, borderRadius: 4, background: "#1A1A1A", color: "#555", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, flexShrink: 0 }}>{si + 1}</span>
+                        <span style={{ fontSize: 11, color: "#AAA", lineHeight: 1.6 }}>{screen}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+            <div style={{ marginTop: 20, background: "#0A0D0A", border: "1px solid #1A2A1A", borderRadius: 8, padding: 16 }}>
+              <div style={{ fontSize: 9, letterSpacing: 2, color: "#00E676", marginBottom: 8 }}>UX PHILOSOPHY</div>
+              <p style={{ fontSize: 11, color: "#888", lineHeight: 1.7, margin: 0 }}>The product surface is deliberately narrow. Most days, the user sees exactly one screen: the Morning Briefing with 3 priorities. This is a recommendation product, not a dashboard product. The agents are the depth; the daily plan is the surface.</p>
+            </div>
+          </div>
+        )}
+
+        {activeSection === "daily" && (
+          <div>
+            <h2 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 8px 0" }}>Daily Recommendation Engine</h2>
+            <p style={{ color: "#777", fontSize: 12, lineHeight: 1.7, marginBottom: 24 }}>The most critical product loop. Runs overnight, delivers at wake time.</p>
+            {[
+              { time: "02:00", label: "INGEST", color: "#455A64", desc: "Overnight wearable data sync completes. Last 24h of events are finalized in the Twin." },
+              { time: "02:15", label: "OBSERVE", color: "#1565C0", desc: "All 5 domain agents independently read the Twin. Each computes their domain score." },
+              { time: "02:30", label: "PROPOSE", color: "#2E7D32", desc: "Each agent submits up to 3 proposals to the message bus with priority and evidence." },
+              { time: "02:45", label: "CONSENSUS", color: "#FF6B35", desc: "Orchestrator runs the 6-step consensus protocol. Conflicts are resolved." },
+              { time: "03:00", label: "SYNTHESIZE", color: "#6A1B9A", desc: "Top 3 actions selected. Considers: user goals, yesterday\u2019s adherence, current protocol phase." },
+              { time: "03:15", label: "GENERATE", color: "#00838F", desc: "Morning briefing generated: pulse summary, 3 actions with plain-language rationale." },
+              { time: "03:30", label: "COMMIT", color: "#37474F", desc: "Twin updated with new snapshot, consensus log, recommendation events." },
+              { time: "~7:00", label: "DELIVER", color: "#00E676", desc: "Push notification \u2192 user opens app \u2192 Morning Briefing. Interactions logged as events." },
+            ].map((step, i) => (
+              <div key={i} className="pipeline-row" style={{ display: "flex", gap: 14, marginBottom: 4 }}>
+                <div className="pipeline-time" style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 50, flexShrink: 0 }}>
+                  <span style={{ fontSize: 10, color: "#555", fontWeight: 600 }}>{step.time}</span>
+                  {i < 7 && <div className="pipeline-line" style={{ width: 1, flex: 1, background: "#1A1A1A", marginTop: 4 }} />}
+                </div>
+                <div style={{ flex: 1, background: "#0C0C0C", border: "1px solid #161616", borderRadius: 6, padding: "10px 14px", marginBottom: 4 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: 2, background: step.color }} />
+                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: step.color }}>{step.label}</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: "#888", lineHeight: 1.6 }}>{step.desc}</div>
+                </div>
+              </div>
+            ))}
+            <div style={{ marginTop: 24, background: "#0A0D0A", border: "1px solid #00E67622", borderRadius: 10, padding: 20 }}>
+              <div style={{ fontSize: 9, letterSpacing: 2, color: "#00E676", marginBottom: 14 }}>EXAMPLE: MORNING BRIEFING OUTPUT</div>
+              <div style={{ background: "#050505", borderRadius: 8, padding: 16, border: "1px solid #1A1A1A" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700 }}>Good morning \u2600\uFE0F</div>
+                    <div style={{ fontSize: 10, color: "#666", marginTop: 2 }}>Monday, Feb 23 \u00B7 Recovery: 82% \u00B7 Sleep: 7.4h</div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: "#00E676" }}>78</div>
+                    <div style={{ fontSize: 9, color: "#555" }}>TWIN SCORE</div>
+                  </div>
+                </div>
+                {[
+                  { icon: "\uD83D\uDCAA", label: "30min Zone 2 after lunch", agent: "Fitness", why: "VO2max trending flat \u2014 needs aerobic stimulus. Recovery is green-lit." },
+                  { icon: "\uD83E\uDD6C", label: "Add pumpkin seeds to dinner", agent: "Nutrition", why: "Ferritin dropped 12% last panel. Dietary iron > supplement given gut markers." },
+                  { icon: "\uD83C\uDF19", label: "Blue light cutoff by 9:30pm", agent: "Recovery", why: "Sleep onset latency averaged 34min this week. Screen timing is the easiest lever." },
+                ].map((rec, i) => (
+                  <div key={i} style={{ padding: "10px 0", borderTop: i > 0 ? "1px solid #151515" : "none" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 18 }}>{rec.icon}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600 }}>{rec.label}</div>
+                        <div style={{ fontSize: 10, color: "#666", marginTop: 2 }}>via <span style={{ color: "#888" }}>{rec.agent}</span> \u00B7 {rec.why}</div>
+                      </div>
+                      <div style={{ width: 20, height: 20, borderRadius: 4, border: "1px solid #333", flexShrink: 0 }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.render(<App />, document.getElementById("root"));
+</script>
+</body>
+</html>
