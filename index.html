@@ -69,7 +69,7 @@
 <a class="skip-link" href="#main-content">Skip to main content</a>
 <div id="root"></div>
 <script type="text/babel">
-const { useState } = React;
+const { useState, useRef } = React;
 
 const sections = [
   { id: "architecture", icon: "\u25C8", title: "System Architecture", subtitle: "How the pieces connect" },
@@ -247,6 +247,7 @@ function App() {
   const [openAgent, setOpenAgent] = useState(null);
   const [openStep, setOpenStep] = useState(null);
   const [openFlow, setOpenFlow] = useState(null);
+  const sidebarButtonRefs = useRef({});
 
   const typeColor = (t) => ({ "static": ["#333","#888"], "append-only": ["#1A2A1A","#4CAF50"], "computed": ["#1A1A2A","#42A5F5"], "mutable": ["#2A2A1A","#FFA726"] }[t] || ["#222","#888"]);
 
@@ -263,10 +264,28 @@ function App() {
             key={s.id}
             className="interactive-control"
             role="button"
-            tabIndex={0}
+            ref={(el) => {
+              sidebarButtonRefs.current[s.id] = el;
+            }}
+            tabIndex={activeSection === s.id ? 0 : -1}
             aria-current={activeSection === s.id ? "page" : undefined}
             onClick={() => setActiveSection(s.id)}
             onKeyDown={(e) => {
+              const index = sections.findIndex((section) => section.id === s.id);
+              if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                e.preventDefault();
+                const direction = e.key === "ArrowDown" ? 1 : -1;
+                const nextIndex = (index + direction + sections.length) % sections.length;
+                const nextSection = sections[nextIndex];
+                if (nextSection) {
+                  setActiveSection(nextSection.id);
+                  requestAnimationFrame(() => {
+                    sidebarButtonRefs.current[nextSection.id]?.focus();
+                  });
+                }
+                return;
+              }
+
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
                 setActiveSection(s.id);
