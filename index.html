@@ -31,6 +31,20 @@
     color: #00140A;
     box-shadow: 0 0 0 2px #00331A;
   }
+  .interactive-control {
+    font: inherit;
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+  }
+  .interactive-control:focus-visible {
+    outline: 2px solid #00E676;
+    outline-offset: 2px;
+  }
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: #090909; }
   ::-webkit-scrollbar-thumb { background: #222; border-radius: 3px; }
@@ -174,8 +188,24 @@ const uxFlows = [
 ];
 
 function AgentCard({ agent, isOpen, onToggle }) {
+  const panelId = `agent-panel-${agent.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+
   return (
-    <div onClick={onToggle} style={{ background: isOpen ? "#141414" : "#0F0F0F", border: `1px solid ${isOpen ? agent.color + "55" : "#1A1A1A"}`, borderRadius: 10, padding: isOpen ? 20 : 14, cursor: "pointer", transition: "all 0.15s ease" }}>
+    <div
+      className="interactive-control"
+      role="button"
+      tabIndex={0}
+      onClick={onToggle}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onToggle();
+        }
+      }}
+      aria-expanded={isOpen}
+      aria-controls={panelId}
+      style={{ background: isOpen ? "#141414" : "#0F0F0F", border: `1px solid ${isOpen ? agent.color + "55" : "#1A1A1A"}`, borderRadius: 10, padding: isOpen ? 20 : 14, transition: "all 0.15s ease" }}
+    >
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <span style={{ fontSize: 22 }}>{agent.emoji}</span>
         <div style={{ flex: 1 }}>
@@ -185,7 +215,7 @@ function AgentCard({ agent, isOpen, onToggle }) {
         <span style={{ fontSize: 9, color: "#444", letterSpacing: 2 }}>{agent.updateFrequency.split("+")[0].trim().toUpperCase()}</span>
       </div>
       {isOpen && (
-        <div style={{ marginTop: 16 }}>
+        <div id={panelId} role="region" style={{ marginTop: 16 }}>
           <div style={{ background: agent.color + "12", borderLeft: `3px solid ${agent.color}`, padding: "10px 14px", borderRadius: "0 8px 8px 0", marginBottom: 14 }}>
             <div style={{ fontSize: 9, letterSpacing: 2, color: agent.color, marginBottom: 4, fontWeight: 700 }}>VOICE & PERSONALITY</div>
             <p style={{ fontSize: 11, color: "#BBB", lineHeight: 1.7, margin: 0, fontStyle: "italic" }}>{agent.personality}</p>
@@ -229,7 +259,21 @@ function App() {
           <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.3, background: "linear-gradient(135deg, #00E676, #00BFA5)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Twin + Agents</div>
         </div>
         {sections.map((s) => (
-          <div key={s.id} className="nav-item" onClick={() => setActiveSection(s.id)} style={{ padding: "10px 16px", cursor: "pointer", borderLeft: activeSection === s.id ? "2px solid #00E676" : "2px solid transparent", background: activeSection === s.id ? "#0A0A0A" : "transparent" }}>
+          <div
+            key={s.id}
+            className="interactive-control"
+            role="button"
+            tabIndex={0}
+            aria-current={activeSection === s.id ? "page" : undefined}
+            onClick={() => setActiveSection(s.id)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setActiveSection(s.id);
+              }
+            }}
+            style={{ padding: "10px 16px", borderLeft: activeSection === s.id ? "2px solid #00E676" : "2px solid transparent", background: activeSection === s.id ? "#0A0A0A" : "transparent" }}
+          >
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ color: activeSection === s.id ? "#00E676" : "#444", fontSize: 12 }}>{s.icon}</span>
               <div>
@@ -325,7 +369,22 @@ function App() {
             <p style={{ color: "#777", fontSize: 12, lineHeight: 1.7, marginBottom: 24 }}>Agents must agree before updating the Twin or surfacing recommendations. This 6-step protocol runs daily and on-demand when new data arrives.</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {consensusSteps.map((s) => (
-                <div key={s.step} onClick={() => setOpenStep(openStep === s.step ? null : s.step)} style={{ background: openStep === s.step ? "#111" : "#0C0C0C", border: `1px solid ${openStep === s.step ? "#00E67633" : "#161616"}`, borderRadius: 8, padding: openStep === s.step ? 16 : "12px 16px", cursor: "pointer" }}>
+                <div
+                  key={s.step}
+                  className="interactive-control"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setOpenStep(openStep === s.step ? null : s.step)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setOpenStep(openStep === s.step ? null : s.step);
+                    }
+                  }}
+                  aria-expanded={openStep === s.step}
+                  aria-controls={`consensus-panel-${s.step}`}
+                  style={{ background: openStep === s.step ? "#111" : "#0C0C0C", border: `1px solid ${openStep === s.step ? "#00E67633" : "#161616"}`, borderRadius: 8, padding: openStep === s.step ? 16 : "12px 16px" }}
+                >
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <span style={{ width: 28, height: 28, borderRadius: "50%", background: openStep === s.step ? "#00E676" : "#1A1A1A", color: openStep === s.step ? "#000" : "#555", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{s.step}</span>
                     <div style={{ flex: 1 }}>
@@ -333,7 +392,7 @@ function App() {
                       <span style={{ fontSize: 11, color: "#666", marginLeft: 12 }}>{s.desc}</span>
                     </div>
                   </div>
-                  {openStep === s.step && (<div style={{ marginTop: 12, marginLeft: 40, fontSize: 11, color: "#999", lineHeight: 1.7 }}>{s.detail}</div>)}
+                  {openStep === s.step && (<div id={`consensus-panel-${s.step}`} role="region" style={{ marginTop: 12, marginLeft: 40, fontSize: 11, color: "#999", lineHeight: 1.7 }}>{s.detail}</div>)}
                 </div>
               ))}
             </div>
@@ -384,14 +443,29 @@ function App() {
             <h2 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 8px 0" }}>User Experience Flows</h2>
             <p style={{ color: "#777", fontSize: 12, lineHeight: 1.7, marginBottom: 24 }}>5 core interaction patterns. The user never sees \u201Cagents\u201D as technical infrastructure \u2014 they experience personalized health specialists they can talk to.</p>
             {uxFlows.map((flow, fi) => (
-              <div key={fi} onClick={() => setOpenFlow(openFlow === fi ? null : fi)} style={{ background: openFlow === fi ? "#111" : "#0C0C0C", border: `1px solid ${openFlow === fi ? "#00BFA533" : "#161616"}`, borderRadius: 8, padding: openFlow === fi ? 20 : 14, marginBottom: 8, cursor: "pointer" }}>
+              <div
+                key={fi}
+                className="interactive-control"
+                role="button"
+                tabIndex={0}
+                onClick={() => setOpenFlow(openFlow === fi ? null : fi)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setOpenFlow(openFlow === fi ? null : fi);
+                  }
+                }}
+                aria-expanded={openFlow === fi}
+                aria-controls={`flow-panel-${fi}`}
+                style={{ background: openFlow === fi ? "#111" : "#0C0C0C", border: `1px solid ${openFlow === fi ? "#00BFA533" : "#161616"}`, borderRadius: 8, padding: openFlow === fi ? 20 : 14, marginBottom: 8 }}
+              >
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <span style={{ fontSize: 10, color: "#00BFA5", fontWeight: 700, minWidth: 70, textAlign: "right" }}>{flow.time}</span>
                   <span style={{ fontSize: 13, fontWeight: 700, flex: 1 }}>{flow.name}</span>
                   <span style={{ color: "#333", fontSize: 14, transform: openFlow === fi ? "rotate(45deg)" : "none", transition: "transform 0.15s" }}>+</span>
                 </div>
                 {openFlow === fi && (
-                  <div style={{ marginTop: 14 }}>
+                  <div id={`flow-panel-${fi}`} role="region" style={{ marginTop: 14 }}>
                     <p style={{ fontSize: 11, color: "#999", lineHeight: 1.7, margin: "0 0 14px 0" }}>{flow.desc}</p>
                     <div style={{ fontSize: 9, letterSpacing: 2, color: "#555", marginBottom: 8 }}>SCREENS</div>
                     {flow.screens.map((screen, si) => (
