@@ -3,10 +3,10 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
+    "pretest": "npx playwright install chromium",
     "test": "playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.51.1"
   }
 }
-
