@@ -187,6 +187,15 @@ const uxFlows = [
     screens: ["Biological age delta + pace-of-aging trend", "System-by-system breakdown (each agent\u2019s domain score over time)", "Protocol effectiveness: which interventions moved which biomarkers"] },
 ];
 
+const getSectionFromLocation = () => {
+  const params = new URLSearchParams(window.location.search);
+  const querySection = params.get("section");
+  const hashSection = window.location.hash.replace("#", "");
+  const candidate = querySection || hashSection || "architecture";
+
+  return sections.find((section) => section.id === candidate) ? candidate : "architecture";
+};
+
 function AgentCard({ agent, isOpen, onToggle }) {
   const panelId = `agent-panel-${agent.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 
@@ -243,11 +252,33 @@ function AgentCard({ agent, isOpen, onToggle }) {
 }
 
 function App() {
-  const [activeSection, setActiveSection] = useState("architecture");
+  const [activeSection, setActiveSection] = useState(() => getSectionFromLocation());
   const [openAgent, setOpenAgent] = useState(null);
   const [openStep, setOpenStep] = useState(null);
   const [openFlow, setOpenFlow] = useState(null);
   const sidebarButtonRefs = useRef({});
+
+  useEffect(() => {
+    const nextUrl = new URL(window.location.href);
+    nextUrl.searchParams.set("section", activeSection);
+    nextUrl.hash = activeSection;
+    window.history.replaceState(null, "", nextUrl);
+  }, [activeSection]);
+
+  useEffect(() => {
+    const handleLocationChange = () => {
+      const section = getSectionFromLocation();
+      setActiveSection(section);
+    };
+
+    window.addEventListener("popstate", handleLocationChange);
+    window.addEventListener("hashchange", handleLocationChange);
+
+    return () => {
+      window.removeEventListener("popstate", handleLocationChange);
+      window.removeEventListener("hashchange", handleLocationChange);
+    };
+  }, []);
 
   useEffect(() => {
     if (openAgent === null) {
