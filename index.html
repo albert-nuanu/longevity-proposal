@@ -278,11 +278,16 @@ function App() {
   const [openStep, setOpenStep] = useState(null);
   const [openFlow, setOpenFlow] = useState(null);
   const [copyStatus, setCopyStatus] = useState("");
+  const activeSectionRef = useRef(activeSection);
   const sidebarButtonRefs = useRef({});
   const copyTimerRef = useRef(null);
   const isHistoryNavigation = useRef(false);
   const didInitSync = useRef(false);
   const lastSyncedSection = useRef(activeSection);
+
+  useEffect(() => {
+    activeSectionRef.current = activeSection;
+  }, [activeSection]);
 
   useEffect(() => {
     if (!didInitSync.current) {
@@ -309,9 +314,10 @@ function App() {
   }, [activeSection]);
 
   useEffect(() => {
-    const handleLocationChange = () => {
-      const section = getSectionFromLocation();
-      if (section === activeSection) {
+    const handleLocationChange = (event) => {
+      const sectionFromState = normalizeSection(event?.state?.section);
+      const section = sectionFromState || getSectionFromLocation();
+      if (section === activeSectionRef.current) {
         return;
       }
       lastSyncedSection.current = section;
@@ -379,6 +385,30 @@ function App() {
       console.error(error);
     }
   };
+
+  useEffect(() => {
+    const handleSectionShortcut = (event) => {
+      const tagName = event.target?.tagName || "";
+      const isTypingTarget = tagName === "INPUT" || tagName === "TEXTAREA" || event.target?.isContentEditable;
+
+      if (isTypingTarget) {
+        return;
+      }
+
+      const isCopyShortcut = event.shiftKey && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "l";
+      if (!isCopyShortcut) {
+        return;
+      }
+
+      event.preventDefault();
+      copyActiveSectionLink();
+    };
+
+    window.addEventListener("keydown", handleSectionShortcut);
+    return () => {
+      window.removeEventListener("keydown", handleSectionShortcut);
+    };
+  }, [copyActiveSectionLink]);
 
   return (
     <div className="layout" style={{ display: "flex", minHeight: "100vh" }}>
@@ -455,6 +485,7 @@ function App() {
           <button
             onClick={copyActiveSectionLink}
             type="button"
+            title="Copy active section link (⌘/Ctrl + Shift + L)"
             style={{
               font: "inherit",
               background: "linear-gradient(135deg, #00E676, #00BFA5)",
@@ -468,6 +499,7 @@ function App() {
             }}
           >
             Copy link
+            <span style={{ marginLeft: 8, opacity: 0.7, fontSize: 10, fontWeight: 500 }}>(⌘/Ctrl + Shift + L)</span>
           </button>
         </div>
         {copyStatus && (
