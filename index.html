@@ -278,11 +278,16 @@ function App() {
   const [openStep, setOpenStep] = useState(null);
   const [openFlow, setOpenFlow] = useState(null);
   const [copyStatus, setCopyStatus] = useState("");
+  const activeSectionRef = useRef(activeSection);
   const sidebarButtonRefs = useRef({});
   const copyTimerRef = useRef(null);
   const isHistoryNavigation = useRef(false);
   const didInitSync = useRef(false);
   const lastSyncedSection = useRef(activeSection);
+
+  useEffect(() => {
+    activeSectionRef.current = activeSection;
+  }, [activeSection]);
 
   useEffect(() => {
     if (!didInitSync.current) {
@@ -309,9 +314,10 @@ function App() {
   }, [activeSection]);
 
   useEffect(() => {
-    const handleLocationChange = () => {
-      const section = getSectionFromLocation();
-      if (section === activeSection) {
+    const handleLocationChange = (event) => {
+      const sectionFromState = normalizeSection(event?.state?.section);
+      const section = sectionFromState || getSectionFromLocation();
+      if (section === activeSectionRef.current) {
         return;
       }
       lastSyncedSection.current = section;
