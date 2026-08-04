@@ -187,6 +187,36 @@ const uxFlows = [
     screens: ["Biological age delta + pace-of-aging trend", "System-by-system breakdown (each agent\u2019s domain score over time)", "Protocol effectiveness: which interventions moved which biomarkers"] },
 ];
 
+const sectionAliasMap = {
+  overview: "architecture",
+};
+
+const sectionIds = new Set(sections.map((section) => section.id));
+
+const normalizeSection = (value) => {
+  if (!value) return null;
+  const mapped = sectionAliasMap[value.toLowerCase().trim()] || value.toLowerCase().trim();
+  return sectionIds.has(mapped) ? mapped : null;
+};
+
+const getSectionParamFromLocation = () => {
+  const params = new URLSearchParams(window.location.search);
+  const querySection = params.get("section");
+  const hashSection = window.location.hash.replace("#", "");
+  return querySection || hashSection || "";
+};
+
+const getSectionFromLocation = () => {
+  return normalizeSection(getSectionParamFromLocation()) || "architecture";
+};
+
+const sectionUrl = (section) => {
+  const nextUrl = new URL(window.location.href);
+  nextUrl.searchParams.set("section", section);
+  nextUrl.hash = section;
+  return nextUrl;
+};
+
 function AgentCard({ agent, isOpen, onToggle }) {
   const panelId = `agent-panel-${agent.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 
@@ -243,11 +273,58 @@ function AgentCard({ agent, isOpen, onToggle }) {
 }
 
 function App() {
-  const [activeSection, setActiveSection] = useState("architecture");
+  const [activeSection, setActiveSection] = useState(() => getSectionFromLocation());
   const [openAgent, setOpenAgent] = useState(null);
   const [openStep, setOpenStep] = useState(null);
   const [openFlow, setOpenFlow] = useState(null);
   const sidebarButtonRefs = useRef({});
+  const isHistoryNavigation = useRef(false);
+  const didInitSync = useRef(false);
+  const lastSyncedSection = useRef(activeSection);
+
+  useEffect(() => {
+    if (!didInitSync.current) {
+      didInitSync.current = true;
+      const rawSection = getSectionParamFromLocation();
+      if (rawSection && normalizeSection(rawSection) !== activeSection) {
+        window.history.replaceState({ section: activeSection }, "", sectionUrl(activeSection));
+        lastSyncedSection.current = activeSection;
+      }
+      return;
+    }
+
+    if (isHistoryNavigation.current) {
+      isHistoryNavigation.current = false;
+      return;
+    }
+
+    if (lastSyncedSection.current === activeSection) {
+      return;
+    }
+
+    window.history.pushState({ section: activeSection }, "", sectionUrl(activeSection));
+    lastSyncedSection.current = activeSection;
+  }, [activeSection]);
+
+  useEffect(() => {
+    const handleLocationChange = () => {
+      const section = getSectionFromLocation();
+      if (section === activeSection) {
+        return;
+      }
+      lastSyncedSection.current = section;
+      isHistoryNavigation.current = true;
+      setActiveSection(section);
+    };
+
+    window.addEventListener("popstate", handleLocationChange);
+    window.addEventListener("hashchange", handleLocationChange);
+
+    return () => {
+      window.removeEventListener("popstate", handleLocationChange);
+      window.removeEventListener("hashchange", handleLocationChange);
+    };
+  }, []);
 
   useEffect(() => {
     if (openAgent === null) {
