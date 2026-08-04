@@ -257,17 +257,33 @@ function App() {
   const [openStep, setOpenStep] = useState(null);
   const [openFlow, setOpenFlow] = useState(null);
   const sidebarButtonRefs = useRef({});
+  const isHistoryNavigation = useRef(false);
+  const didInitSync = useRef(false);
 
   useEffect(() => {
+    if (!didInitSync.current) {
+      didInitSync.current = true;
+      return;
+    }
+
+    if (isHistoryNavigation.current) {
+      isHistoryNavigation.current = false;
+      return;
+    }
+
     const nextUrl = new URL(window.location.href);
     nextUrl.searchParams.set("section", activeSection);
     nextUrl.hash = activeSection;
-    window.history.replaceState(null, "", nextUrl);
+    window.history.pushState({ section: activeSection }, "", nextUrl);
   }, [activeSection]);
 
   useEffect(() => {
     const handleLocationChange = () => {
       const section = getSectionFromLocation();
+      if (section === activeSection) {
+        return;
+      }
+      isHistoryNavigation.current = true;
       setActiveSection(section);
     };
 
