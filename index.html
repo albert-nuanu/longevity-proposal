@@ -277,7 +277,9 @@ function App() {
   const [openAgent, setOpenAgent] = useState(null);
   const [openStep, setOpenStep] = useState(null);
   const [openFlow, setOpenFlow] = useState(null);
+  const [copyStatus, setCopyStatus] = useState("");
   const sidebarButtonRefs = useRef({});
+  const copyTimerRef = useRef(null);
   const isHistoryNavigation = useRef(false);
   const didInitSync = useRef(false);
   const lastSyncedSection = useRef(activeSection);
@@ -344,6 +346,39 @@ function App() {
   }, [openAgent]);
 
   const typeColor = (t) => ({ "static": ["#333","#888"], "append-only": ["#1A2A1A","#4CAF50"], "computed": ["#1A1A2A","#42A5F5"], "mutable": ["#2A2A1A","#FFA726"] }[t] || ["#222","#888"]);
+
+  const activeSectionMeta = sections.find((section) => section.id === activeSection);
+  const activeSectionTitle = activeSectionMeta ? activeSectionMeta.title : "Prototype Section";
+
+  const copyActiveSectionLink = async () => {
+    const link = sectionUrl(activeSection).toString();
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(link);
+      } else {
+        const tmp = document.createElement("textarea");
+        tmp.value = link;
+        tmp.setAttribute("readonly", "");
+        tmp.style.position = "fixed";
+        tmp.style.left = "-9999px";
+        document.body.appendChild(tmp);
+        tmp.select();
+        document.execCommand("copy");
+        document.body.removeChild(tmp);
+      }
+
+      if (copyTimerRef.current) {
+        clearTimeout(copyTimerRef.current);
+      }
+      setCopyStatus(`Copied: ${link}`);
+      copyTimerRef.current = setTimeout(() => {
+        setCopyStatus("");
+      }, 1500);
+    } catch (error) {
+      setCopyStatus("Copy failed");
+      console.error(error);
+    }
+  };
 
   return (
     <div className="layout" style={{ display: "flex", minHeight: "100vh" }}>
@@ -413,6 +448,33 @@ function App() {
 
       {/* Main */}
       <main id="main-content" tabIndex="-1" className="main-content" style={{ flex: 1, padding: "32px 40px", maxWidth: 760 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
+          <div style={{ color: "#CCC", fontSize: 10, letterSpacing: 0.4 }}>
+            ACTIVE PROTOTYPE SECTION: <span style={{ color: "#00E676", fontWeight: 700 }}>{activeSectionTitle}</span>
+          </div>
+          <button
+            onClick={copyActiveSectionLink}
+            type="button"
+            style={{
+              font: "inherit",
+              background: "linear-gradient(135deg, #00E676, #00BFA5)",
+              color: "#09120B",
+              border: "none",
+              borderRadius: 999,
+              padding: "8px 12px",
+              fontSize: 11,
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            Copy link
+          </button>
+        </div>
+        {copyStatus && (
+          <div style={{ fontSize: 10, color: "#00E676", marginBottom: 14 }}>
+            {copyStatus}
+          </div>
+        )}
 
         {activeSection === "architecture" && (
           <div>
