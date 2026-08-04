@@ -5,9 +5,9 @@ export default defineConfig({
   timeout: 30000,
   use: {
     browserName: "chromium",
+    channel: "chrome",
     headless: true,
   },
   retries: 0,
   workers: 1,
 });
-
