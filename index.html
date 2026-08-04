@@ -80,6 +80,15 @@ const sections = [
   { id: "daily", icon: "\u25C8", title: "Daily Engine", subtitle: "The morning briefing pipeline" },
 ];
 
+const keyboardShortcuts = [
+  { keys: "?", action: "Open keyboard shortcuts dialog" },
+  { keys: "Tab", action: "Move through interactive controls" },
+  { keys: "Arrow Down/Up", action: "Move between sidebar sections" },
+  { keys: "Home/End", action: "Jump to first/last section in sidebar" },
+  { keys: "Enter/Space", action: "Activate a focused control" },
+  { keys: "Escape", action: "Close open cards/dialogs" },
+];
+
 const agents = [
   {
     name: "Metabolic", emoji: "\uD83D\uDD25", color: "#FF6B35",
@@ -247,7 +256,61 @@ function App() {
   const [openAgent, setOpenAgent] = useState(null);
   const [openStep, setOpenStep] = useState(null);
   const [openFlow, setOpenFlow] = useState(null);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const sidebarButtonRefs = useRef({});
+  const helpButtonRef = useRef(null);
+  const helpCloseButtonRef = useRef(null);
+  const helpReturnRef = useRef(null);
+
+  useEffect(() => {
+    if (!isHelpOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setIsHelpOpen(false);
+      }
+
+      if (event.key !== "Tab" || !helpCloseButtonRef.current) {
+        return;
+      }
+
+      const dialog = helpCloseButtonRef.current.closest('[role="dialog"]');
+      if (!dialog) {
+        return;
+      }
+
+      const focusable = dialog.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      const focused = document.activeElement;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (!focusable.length) {
+        return;
+      }
+
+      if (!event.shiftKey && focused === last) {
+        event.preventDefault();
+        first.focus();
+      }
+
+      if (event.shiftKey && focused === first) {
+        event.preventDefault();
+        last.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    requestAnimationFrame(() => {
+      helpCloseButtonRef.current?.focus();
+    });
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      helpReturnRef.current?.focus();
+    };
+  }, [isHelpOpen]);
 
   useEffect(() => {
     if (openAgent === null) {
@@ -265,6 +328,34 @@ function App() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [openAgent]);
+
+  useEffect(() => {
+    const handleHelpShortcut = (event) => {
+      const target = document.activeElement;
+      const isFormField =
+        target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable || target.tagName === "SELECT");
+
+      if (isFormField) {
+        return;
+      }
+
+      if (event.key === "?") {
+        event.preventDefault();
+        setIsHelpOpen((prev) => !prev);
+      }
+    };
+
+    window.addEventListener("keydown", handleHelpShortcut);
+    return () => {
+      window.removeEventListener("keydown", handleHelpShortcut);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isHelpOpen) {
+      helpReturnRef.current = document.activeElement;
+    }
+  }, [isHelpOpen]);
 
   const typeColor = (t) => ({ "static": ["#333","#888"], "append-only": ["#1A2A1A","#4CAF50"], "computed": ["#1A1A2A","#42A5F5"], "mutable": ["#2A2A1A","#FFA726"] }[t] || ["#222","#888"]);
 
@@ -336,6 +427,73 @@ function App() {
 
       {/* Main */}
       <main id="main-content" tabIndex="-1" className="main-content" style={{ flex: 1, padding: "32px 40px", maxWidth: 760 }}>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 20 }}>
+          <div />
+          <button
+            ref={helpButtonRef}
+            onClick={() => setIsHelpOpen(true)}
+            className="interactive-control"
+            style={{ width: "auto", maxWidth: 220, border: "1px solid #1A1A1A", borderRadius: 6, padding: "8px 12px", background: "#0A0A0A" }}
+          >
+            Keyboard help ( ? )
+          </button>
+        </div>
+
+        {isHelpOpen && (
+          <div
+            aria-hidden="true"
+            role="presentation"
+            onClick={() => setIsHelpOpen(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.75)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 16,
+              zIndex: 999,
+            }}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="keyboard-help-title"
+              onClick={(event) => event.stopPropagation()}
+              style={{
+                width: "100%",
+                maxWidth: 520,
+                background: "#0B0B0B",
+                border: "1px solid #1A1A1A",
+                borderRadius: 12,
+                padding: 20,
+                boxShadow: "0 12px 36px rgba(0,0,0,0.5)",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <h2 id="keyboard-help-title" style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Keyboard Shortcuts</h2>
+                <button
+                  ref={helpCloseButtonRef}
+                  className="interactive-control"
+                  style={{ width: "auto", border: "1px solid #1A1A1A", borderRadius: 6, padding: "6px 10px", background: "#111" }}
+                  onClick={() => setIsHelpOpen(false)}
+                >
+                  Close (Esc)
+                </button>
+              </div>
+              <p style={{ color: "#666", fontSize: 12, marginBottom: 16 }}>Use these shortcuts while interacting with the page.</p>
+              <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8 }}>
+                {keyboardShortcuts.map((shortcut) => (
+                  <li key={shortcut.keys} style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #151515", paddingBottom: 10 }}>
+                    <span style={{ color: "#CCC", fontWeight: 700, width: 120 }}>{shortcut.keys}</span>
+                    <span style={{ color: "#999", fontSize: 12, textAlign: "right", marginLeft: 14 }}>{shortcut.action}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
 
         {activeSection === "architecture" && (
           <div>
