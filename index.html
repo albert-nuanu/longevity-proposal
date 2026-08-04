@@ -187,13 +187,34 @@ const uxFlows = [
     screens: ["Biological age delta + pace-of-aging trend", "System-by-system breakdown (each agent\u2019s domain score over time)", "Protocol effectiveness: which interventions moved which biomarkers"] },
 ];
 
-const getSectionFromLocation = () => {
+const sectionAliasMap = {
+  overview: "architecture",
+};
+
+const sectionIds = new Set(sections.map((section) => section.id));
+
+const normalizeSection = (value) => {
+  if (!value) return null;
+  const mapped = sectionAliasMap[value.toLowerCase().trim()] || value.toLowerCase().trim();
+  return sectionIds.has(mapped) ? mapped : null;
+};
+
+const getSectionParamFromLocation = () => {
   const params = new URLSearchParams(window.location.search);
   const querySection = params.get("section");
   const hashSection = window.location.hash.replace("#", "");
-  const candidate = querySection || hashSection || "architecture";
+  return querySection || hashSection || "";
+};
 
-  return sections.find((section) => section.id === candidate) ? candidate : "architecture";
+const getSectionFromLocation = () => {
+  return normalizeSection(getSectionParamFromLocation()) || "architecture";
+};
+
+const sectionUrl = (section) => {
+  const nextUrl = new URL(window.location.href);
+  nextUrl.searchParams.set("section", section);
+  nextUrl.hash = section;
+  return nextUrl;
 };
 
 function AgentCard({ agent, isOpen, onToggle }) {
@@ -259,10 +280,16 @@ function App() {
   const sidebarButtonRefs = useRef({});
   const isHistoryNavigation = useRef(false);
   const didInitSync = useRef(false);
+  const lastSyncedSection = useRef(activeSection);
 
   useEffect(() => {
     if (!didInitSync.current) {
       didInitSync.current = true;
+      const rawSection = getSectionParamFromLocation();
+      if (rawSection && normalizeSection(rawSection) !== activeSection) {
+        window.history.replaceState({ section: activeSection }, "", sectionUrl(activeSection));
+        lastSyncedSection.current = activeSection;
+      }
       return;
     }
 
@@ -271,10 +298,12 @@ function App() {
       return;
     }
 
-    const nextUrl = new URL(window.location.href);
-    nextUrl.searchParams.set("section", activeSection);
-    nextUrl.hash = activeSection;
-    window.history.pushState({ section: activeSection }, "", nextUrl);
+    if (lastSyncedSection.current === activeSection) {
+      return;
+    }
+
+    window.history.pushState({ section: activeSection }, "", sectionUrl(activeSection));
+    lastSyncedSection.current = activeSection;
   }, [activeSection]);
 
   useEffect(() => {
@@ -283,6 +312,7 @@ function App() {
       if (section === activeSection) {
         return;
       }
+      lastSyncedSection.current = section;
       isHistoryNavigation.current = true;
       setActiveSection(section);
     };
