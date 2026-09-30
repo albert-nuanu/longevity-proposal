@@ -9,6 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
   <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
   body { background: #090909; color: #E0E0E0; font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Courier New', monospace; }
   .skip-link {
     position: fixed;
@@ -48,6 +49,15 @@
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: #090909; }
   ::-webkit-scrollbar-thumb { background: #222; border-radius: 3px; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
   @media (max-width: 768px) {
     .layout { flex-direction: column !important; }
     .sidebar { width: 100% !important; min-width: 100% !important; height: auto !important; position: relative !important; border-right: none !important; border-bottom: 1px solid #1A1A1A; flex-direction: row !important; overflow-x: auto !important; padding: 12px 0 !important; }
