@@ -71,6 +71,8 @@
 <script type="text/babel">
 const { useState, useRef, useEffect } = React;
 
+const productTitle = "Twin + Agents — Product Design";
+
 const sections = [
   { id: "architecture", icon: "\u25C8", title: "System Architecture", subtitle: "How the pieces connect" },
   { id: "agents", icon: "\u25C9", title: "Agent Roster", subtitle: "The constellation of specialists" },
@@ -79,6 +81,10 @@ const sections = [
   { id: "ux", icon: "\u25FB", title: "User Experience Flows", subtitle: "How people actually use this" },
   { id: "daily", icon: "\u25C8", title: "Daily Engine", subtitle: "The morning briefing pipeline" },
 ];
+
+const sectionTitle = (section) => {
+  return sections.find((candidate) => candidate.id === section)?.title || "Prototype Section";
+};
 
 const agents = [
   {
@@ -273,7 +279,11 @@ function AgentCard({ agent, isOpen, onToggle }) {
 }
 
 function App() {
-  const [activeSection, setActiveSection] = useState(() => getSectionFromLocation());
+  const [activeSection, setActiveSection] = useState(() => {
+    const initialSection = getSectionFromLocation();
+    document.title = `${sectionTitle(initialSection)} — ${productTitle}`;
+    return initialSection;
+  });
   const [openAgent, setOpenAgent] = useState(null);
   const [openStep, setOpenStep] = useState(null);
   const [openFlow, setOpenFlow] = useState(null);
@@ -281,13 +291,22 @@ function App() {
   const activeSectionRef = useRef(activeSection);
   const sidebarButtonRefs = useRef({});
   const copyTimerRef = useRef(null);
-  const isHistoryNavigation = useRef(false);
   const didInitSync = useRef(false);
   const lastSyncedSection = useRef(activeSection);
 
-  useEffect(() => {
-    activeSectionRef.current = activeSection;
-  }, [activeSection]);
+  const syncSectionSurfaces = (section, pushHistory = true) => {
+    activeSectionRef.current = section;
+    document.title = `${sectionTitle(section)} — ${productTitle}`;
+    if (pushHistory && lastSyncedSection.current !== section) {
+      window.history.pushState({ section }, "", sectionUrl(section));
+    }
+    lastSyncedSection.current = section;
+  };
+
+  const selectSection = (section) => {
+    syncSectionSurfaces(section);
+    setActiveSection(section);
+  };
 
   useEffect(() => {
     if (!didInitSync.current) {
@@ -300,17 +319,6 @@ function App() {
       return;
     }
 
-    if (isHistoryNavigation.current) {
-      isHistoryNavigation.current = false;
-      return;
-    }
-
-    if (lastSyncedSection.current === activeSection) {
-      return;
-    }
-
-    window.history.pushState({ section: activeSection }, "", sectionUrl(activeSection));
-    lastSyncedSection.current = activeSection;
   }, [activeSection]);
 
   useEffect(() => {
@@ -320,8 +328,7 @@ function App() {
       if (section === activeSectionRef.current) {
         return;
       }
-      lastSyncedSection.current = section;
-      isHistoryNavigation.current = true;
+      syncSectionSurfaces(section, false);
       setActiveSection(section);
     };
 
@@ -353,8 +360,7 @@ function App() {
 
   const typeColor = (t) => ({ "static": ["#333","#888"], "append-only": ["#1A2A1A","#4CAF50"], "computed": ["#1A1A2A","#42A5F5"], "mutable": ["#2A2A1A","#FFA726"] }[t] || ["#222","#888"]);
 
-  const activeSectionMeta = sections.find((section) => section.id === activeSection);
-  const activeSectionTitle = activeSectionMeta ? activeSectionMeta.title : "Prototype Section";
+  const activeSectionTitle = sectionTitle(activeSection);
 
   const copyActiveSectionLink = async () => {
     const link = sectionUrl(activeSection).toString();
@@ -428,7 +434,7 @@ function App() {
             }}
             tabIndex={activeSection === s.id ? 0 : -1}
             aria-current={activeSection === s.id ? "page" : undefined}
-            onClick={() => setActiveSection(s.id)}
+            onClick={() => selectSection(s.id)}
             onKeyDown={(e) => {
               const index = sections.findIndex((section) => section.id === s.id);
               if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -437,7 +443,7 @@ function App() {
                 const nextIndex = (index + direction + sections.length) % sections.length;
                 const nextSection = sections[nextIndex];
                 if (nextSection) {
-                  setActiveSection(nextSection.id);
+                  selectSection(nextSection.id);
                   requestAnimationFrame(() => {
                     sidebarButtonRefs.current[nextSection.id]?.focus();
                   });
@@ -450,7 +456,7 @@ function App() {
                 const nextIndex = e.key === "Home" ? 0 : sections.length - 1;
                 const nextSection = sections[nextIndex];
                 if (nextSection) {
-                  setActiveSection(nextSection.id);
+                  selectSection(nextSection.id);
                   requestAnimationFrame(() => {
                     sidebarButtonRefs.current[nextSection.id]?.focus();
                   });
@@ -460,7 +466,7 @@ function App() {
 
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
-                setActiveSection(s.id);
+                selectSection(s.id);
               }
             }}
             style={{ padding: "10px 16px", borderLeft: activeSection === s.id ? "2px solid #00E676" : "2px solid transparent", background: activeSection === s.id ? "#0A0A0A" : "transparent" }}
