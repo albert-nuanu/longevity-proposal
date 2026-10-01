@@ -6,8 +6,8 @@ const source = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8")
 
 assert.match(
   source,
-  /if \(!rawSection \|\| normalizeSection\(rawSection\) !== activeSection\) \{\s*window\.history\.replaceState/,
-  "initial history entry must canonicalize a missing section so Back restores the URL too",
+  /if \(rawSection && normalizeSection\(rawSection\) !== activeSection\) \{\s*window\.history\.replaceState/,
+  "initial history sync must preserve a bare URL and only canonicalize invalid nonempty sections",
 );
 
 assert.match(

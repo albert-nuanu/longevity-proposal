@@ -312,7 +312,7 @@ function App() {
     if (!didInitSync.current) {
       didInitSync.current = true;
       const rawSection = getSectionParamFromLocation();
-      if (!rawSection || normalizeSection(rawSection) !== activeSection) {
+      if (rawSection && normalizeSection(rawSection) !== activeSection) {
         window.history.replaceState({ section: activeSection }, "", sectionUrl(activeSection));
         lastSyncedSection.current = activeSection;
       }
